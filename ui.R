@@ -32,7 +32,10 @@ shinyUI(fluidPage(
                     "Number of Samples:",
                     min = 100,
                     max = 10000,
-                    value = 1000)
+                    value = 1000),
+        
+        radioButtons("in_histxlim", label = h3("Histogram x limits"), 
+                     choices = list("Means Distribution" = 1, "Population Distribution" = 2), selected = 1)
         
       )
     

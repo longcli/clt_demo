@@ -39,7 +39,7 @@ shinyServer(function(input, output) {
     fluidPage(
       
       fluidRow(
-        column( 4, sliderInput("in_theta", "Theta:", min = 1, max = 50, value = 1) )
+        column( 4, sliderInput("in_lambda", "Lambda:", min = 0.1, max = 50, value = 1) )
       ),  # fluidRow
       
       fluidRow(a("Wikipedia", href = "https://en.wikipedia.org/wiki/Exponential_distribution", target="_blank")),
@@ -103,9 +103,9 @@ shinyServer(function(input, output) {
     m_numsamples = input$in_numsamples
     mu = input$in_mu 
     stdev = input$in_stdev
+    xlim_choice = input$in_histxlim
     
     CLT_norm_fn = function(m, n, mu, sd = stdev){
-      
       bar_y = rep(0, m)
       for (i in 1:m){
         bar_y[i] = mean(rnorm(n, mean = mu, sd = stdev))
@@ -113,26 +113,36 @@ shinyServer(function(input, output) {
 
       par(mfrow=c(1,3))
       
-      # plot of population ----------------------------------------------------
+      # plot of population -----
       plot(density(rnorm(1000000, mean = mu, sd = stdev)),
            main =  'Normal Population Distribution')
       
-      # plot of sample means
-      # x = seq(min(bar_y), max(bar_y), length.out = 4000)  # orig
-      minx = mu - 4*stdev; maxx = mu + 4*stdev  # expands the sample dist plot to show pop dist better
-      x = seq(minx, maxx, length.out = 4000)
-      y = dnorm(x, mean = mu, sd = stdev/sqrt(n_ssize))
+      # determine xlim for sample means plot -----
+      if (xlim_choice == 1){
+        # compresses the sample dist plot x-axis to highlight dist of sample means
+        minx = mean(bar_y) - 4*sd(bar_y)
+        maxx = mean(bar_y) + 4*sd(bar_y)
+      } else if(xlim_choice == 2) {
+        # expands the sample dist plot x-axis to show pop dist for comparison
+        minx = mu - 4*stdev
+        maxx = mu + 4*stdev
+      }
       
-      # histogram of sample means ---------------------------------------------
+      # create data for plot of sample means -----
+      x = seq(minx, maxx, length.out = 4000)
+      y = dnorm(x, mean(bar_y), sd(bar_y))
+      # y = dnorm(x, mean = mu, sd = stdev/sqrt(n_ssize))
+      
+      # histogram of sample means -----
       hist(bar_y, freq = FALSE, 
-           xlim = c(minx, maxx), 
+           xlim = c(minx, maxx),
            xlab = 'Sample Means',
            main = 'Distribution of Sample Means')
       
-      # adds density plot of estimate norm dist for sample
+      # adds density plot of estimate norm dist for sample -----
       lines(x, y, 6, 14, col = "red", type = "l")
       
-      # QQ normality plot with conf bands -------------------------------------
+      # QQ normality plot with conf bands 
       qqPlot(bar_y) 
       
     }
@@ -154,34 +164,49 @@ shinyServer(function(input, output) {
     
     n_ssize = input$in_ssize
     m_numsamples = input$in_numsamples
-    theta = input$in_theta  # theta is 1/lambda
+    lambda = input$in_lambda 
+    theta = 1/lambda  # added for clarity in notation
+    xlim_choice = input$in_histxlim
       
     CLT_exp_fn = function(m, n, theta){
-        
       bar_y = rep(0, m)
       for (i in 1:m){
         bar_y[i] = mean(rexp(n, rate = 1/theta))
       }
-        
+
       par(mfrow=c(1,3))
         
-      # plot of population
-      plot(density(rexp(1000000, rate = 1/theta)),
+      # plot of population -----
+      plot(density(rexp(1000000, rate = lambda)), 
+           xlim = c(0, qexp(p = 0.999, rate = lambda)),
            main =  'Exponential Population Distribution')
-        
-      # plot of sample means
-      x = seq(min(bar_y), max(bar_y), length.out = 4000)
-      y = dnorm(x, theta, theta/sqrt(n_ssize))
       
-      # histogram of sample means
+      # determine xlim for sample means plot -----
+      if (xlim_choice == 1){
+        # compresses the sample dist plot x-axis to highlight dist of sample means
+        minx = mean(bar_y) - 4*sd(bar_y)
+        maxx = mean(bar_y) + 4*sd(bar_y)
+      } else if(xlim_choice == 2) {
+        # expands the sample dist plot x-axis to show pop dist for comparison
+        minx = 0
+        maxx = qexp(p = 0.999, rate = lambda)
+      }
+
+      # create data for plot of sample means -----
+      x = seq(minx, maxx, length.out = 4000)
+      y = dnorm(x, mean(bar_y), sd(bar_y))
+      # y = dnorm(x, theta, theta/sqrt(n_ssize))
+
+      # histogram of sample means -----
       hist(bar_y, freq = FALSE, 
+           xlim = c(minx, maxx),
            xlab = 'Sample Means',
            main = 'Distribution of Sample Means')
       
-      # adds density plot of estimate norm dist for sample
+      # adds density plot of estimate norm dist for sample -----
       lines(x, y, 6, 14, col = "red", type = "l")
       
-      # QQ normality plot with conf bands
+      # QQ normality plot with conf bands -----
       qqPlot(bar_y) 
        
     }
@@ -207,11 +232,11 @@ shinyServer(function(input, output) {
     
     n_ssize = input$in_ssize
     m_numsamples = input$in_numsamples
-    wshape = input$in_shape  # shape = 1 is exponential
-    wscale = input$in_scale 
+    wshape = input$in_shape  # wshape = 1 is exponential
+    wscale = input$in_scale  # wscale = 1 for testing
+    xlim_choice = input$in_histxlim
     
     CLT_weib_fn = function(m, n, wshapefn, wscalefn){
-      
       bar_y = rep(0, m)
       for (i in 1:m){
         bar_y[i] = mean(rweibull(n, shape = wshapefn, scale = wscalefn))
@@ -222,8 +247,9 @@ shinyServer(function(input, output) {
       # top plot of population
       rweib = rweibull(1000000, shape = wshape, scale = wscale)
       plot(density(rweib),
+           xlim = c(0, qweibull(p = 0.999, shape = wshape, scale = wscale)),
            main =  'Weibull Population Distribution')
-      
+
       # bottom plot of sample means
       xmin = min(rweib); xmax = max(rweib)
       # xstdev = (xmax - xmin)/4  # rough estimate
@@ -237,19 +263,23 @@ shinyServer(function(input, output) {
       # xminhist = gamma_mean - 3*(gamma_sd/sqrt(n_ssize))
       # xmaxhist = gamma_mean + 3*(gamma_sd/sqrt(n_ssize))
       
-      mean_bary = mean(bar_y)
-      stdev_bary = sd(bar_y)
-      
-      xminhist = mean_bary - 4*stdev_bary
-      xmaxhist = mean_bary + 4*stdev_bary
-      
-      # x = seq(min(bar_y), max(bar_y), length.out = 4000)
-      x = seq(xminhist, xmaxhist, length.out = 4000)
-      y = dnorm(x, mean_bary, stdev_bary)
+      # determine xlim for sample means plot -----
+      if (xlim_choice == 1){
+        # compresses the sample dist plot x-axis to highlight dist of sample means
+        minx = mean(bar_y) - 4*sd(bar_y)
+        maxx = mean(bar_y) + 4*sd(bar_y)
+      } else if(xlim_choice == 2) {
+        # expands the sample dist plot x-axis to show pop dist for comparison
+        minx = 0
+        maxx = qweibull(p = 0.999, shape = wshape, scale = wscale)
+      }
+
+      x = seq(minx, maxx, length.out = 4000)
+      y = dnorm(x, mean(bar_y), sd(bar_y))
       
       # histogram of sample means
       hist(bar_y, freq = FALSE, 
-           xlim = c(xminhist, xmaxhist),
+           xlim = c(minx, maxx),
            xlab = 'Sample Means',
            main = 'Distribution of Sample Means')
       
@@ -277,10 +307,10 @@ shinyServer(function(input, output) {
     n_ssize = input$in_ssize
     m_numsamples = input$in_numsamples
     umin = input$in_min 
-    umax = input$in_max 
+    umax = input$in_max
+    xlim_choice = input$in_histxlim
     
     CLT_unif_fn = function(m, n, min, max){
-      
       bar_y = rep(0, m)
       for (i in 1:m){
         bar_y[i] = mean(runif(n, min = min, max = max))
@@ -290,20 +320,32 @@ shinyServer(function(input, output) {
       
       # top plot of population
       plot(density(runif(1000000, min = umin, max = umax)),
+           xlim = c(umin, umax),
            main =  'Uniform Population Distribution')
       
       # bottom plot of sample means
-      # x = seq(min(bar_y), max(bar_y), length.out = 4000)
-      umu = umin + ((umax - umin)/2)
-      ustdev = 1/sqrt(12*n_ssize)
-      minx = umu - 4*ustdev; maxx = umu + 4*ustdev  # expands the sample dist plot to show pop dist better
+      # umu = umin + ((umax - umin)/2)
+      # ustdev = 1/sqrt(12*n_ssize)
+      # minx = umu - 4*ustdev; maxx = umu + 4*ustdev  # expands the sample dist plot to show pop dist better
+      
+      # determine xlim for sample means plot -----
+      if (xlim_choice == 1){
+        # compresses the sample dist plot x-axis to highlight dist of sample means
+        minx = mean(bar_y) - 4*sd(bar_y)
+        maxx = mean(bar_y) + 4*sd(bar_y)
+      } else if(xlim_choice == 2) {
+        # expands the sample dist plot x-axis to show pop dist for comparison
+        minx = umin
+        maxx = umax
+      }
       
       x = seq(minx, maxx, length.out = 4000)
-      y = dnorm(x, umu, ustdev)
+      y = dnorm(x, mean(bar_y), sd(bar_y))
+      # y = dnorm(x, umu, ustdev)
       
       # histogram of sample means
       hist(bar_y, freq = FALSE, 
-           xlim = c(minx, maxx), 
+           xlim = c(minx, maxx),
            xlab = 'Sample Means',
            main = 'Distribution of Sample Means')
       
